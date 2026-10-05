@@ -134,6 +134,16 @@ export const readSemanticsFunction = <Mode extends SemanticMode>(
   const isPageLevel = (el: Element): boolean => el.closest(SECTIONING_SCOPE) === null;
 
   /**
+   * The root of a `contenteditable` region, whatever its tag: the region a
+   * person types into is focusable even when its tag keeps it out of the
+   * textbox vocabulary, as a canvas made editable to collect keystrokes is.
+   */
+  const isEditableRoot = (el: Element): boolean =>
+    el instanceof HTMLElement &&
+    el.isContentEditable &&
+    !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
+
+  /**
    * The root of a contenteditable region: editable itself, under a parent that
    * is not. A rich-text editor (ProseMirror, TipTap, Lexical, Slate) renders
    * its document as such a host with block children; the host is the control
@@ -143,10 +153,7 @@ export const readSemanticsFunction = <Mode extends SemanticMode>(
    * field the keyboard reaches, not a textbox; see `NON_HOST_TAGS`.
    */
   const isEditingHost = (el: Element): boolean =>
-    el instanceof HTMLElement &&
-    el.isContentEditable &&
-    NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1 &&
-    !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
+    isEditableRoot(el) && NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1;
 
   /**
    * The global ARIA states and properties that keep a presentational role
@@ -184,18 +191,19 @@ export const readSemanticsFunction = <Mode extends SemanticMode>(
 
   /**
    * Whether a person can focus the element, which decides whether
-   * `presentation` or `none` may take its role away. Any `tabindex` that
-   * parses as an integer counts, negative included: the value keeps the
-   * element out of the tab order but not out of a person's reach, and
-   * Chromium reads it the same way. A disabled control is out of reach
-   * whatever its `tabindex` says, and only the root of an editable region is
-   * the control, not every node inside it.
+   * `presentation` or `none` may take its role away. Any `tabindex` whose
+   * value starts with an integer counts, negative included: the value keeps
+   * the element out of the tab order but not out of a person's reach, and
+   * Chromium parses it the same way, trailing characters and all, while it
+   * skips only the ASCII whitespace HTML's parser skips. A disabled control
+   * is out of reach whatever its `tabindex` says, and only the root of an
+   * editable region is the control, not every node inside it.
    */
   const isFocusable = (el: Element): boolean => {
     if (el.matches(':disabled')) return false;
     const tabindex = el.getAttribute('tabindex');
-    if (tabindex !== null && /^\s*[-+]?\d/.test(tabindex)) return true;
-    if (isEditingHost(el)) return true;
+    if (tabindex !== null && /^[\t\n\f\r ]*[-+]?\d/.test(tabindex)) return true;
+    if (isEditableRoot(el)) return true;
     const tag = el.tagName.toLowerCase();
     if (tag === 'a' || tag === 'area') return el.hasAttribute('href');
     if (tag === 'button' || tag === 'select' || tag === 'textarea' || tag === 'iframe') return true;
