@@ -12,9 +12,10 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { readGuide, skillTopics } from '../cli/skill.ts';
 import { ConfigurationError, errorMessage } from '../internal/errors.ts';
+import { processSecrets } from '../run/secrecy.ts';
 import { loadProjectConfig, locateProjectConfig } from './config.ts';
+import type { McpOutput } from './output.ts';
 import { SessionHost } from './session.ts';
-import { errorResult } from './tools.ts';
 import type { McpSessionSummary } from './usage.ts';
 
 /** The client as it named itself in `initialize`. */
@@ -40,6 +41,8 @@ export interface ServeOptions {
   readonly stdout: Writable;
   /** Diagnostics for the operator, normally stderr. */
   readonly log: (line: string) => void;
+  /** What user code in this process prints: held while a config loads, and its unfinished lines released once no tool call is in flight. */
+  readonly output?: Pick<McpOutput, 'withholdDuring' | 'duringCall'> | undefined;
   /** Ends the server from outside: a process signal. */
   readonly signal?: AbortSignal | undefined;
   /** Told once per `open_session`, when its session closes or its open fails, with the client that asked; undefined before `initialize`. */
@@ -65,9 +68,11 @@ export async function serveMcp(options: ServeOptions): Promise<number> {
     if (!disconnected && server.isConnected()) void server.sendLoggingMessage({ level, logger: 'e2e', data: message }).catch(() => undefined);
   };
 
+  const output = options.output;
   const host = new SessionHost({
     locateConfig: (configPath) => locateProjectConfig({ cwd: options.cwd, configPath: configPath ?? options.configPath }),
     loadConfig: (configPath) => loadProjectConfig(configPath, options.env),
+    withholdOutput: output === undefined ? undefined : (load) => output.withholdDuring(load),
     env: options.env,
     headed: options.headed,
     maxSessions: options.maxSessions,
@@ -87,13 +92,9 @@ export async function serveMcp(options: ServeOptions): Promise<number> {
         inputSchema: spec.inputSchema,
         annotations: { readOnlyHint: spec.readOnly, openWorldHint: false },
       },
-      async (args, ctx) => {
-        // A failure is a result the agent can react to, never a protocol error.
-        try {
-          return await spec.call(args, { signal: ctx.mcpReq.signal });
-        } catch (cause) {
-          return errorResult(cause);
-        }
+      (args, ctx) => {
+        const call = () => spec.call(args, { signal: ctx.mcpReq.signal });
+        return output === undefined ? call() : output.duringCall(call);
       },
     );
   }
@@ -125,9 +126,9 @@ export async function serveMcp(options: ServeOptions): Promise<number> {
     const summary = await host.closeAll(reason);
     if (summary !== undefined) options.log(summary);
   } catch (cause) {
-    options.log(`session teardown failed: ${errorMessage(cause)}`);
+    options.log(`session teardown failed: ${processSecrets.redact(errorMessage(cause))}`);
   }
-  await server.close().catch((cause: unknown) => options.log(`server close failed: ${errorMessage(cause)}`));
+  await server.close().catch((cause: unknown) => options.log(`server close failed: ${processSecrets.redact(errorMessage(cause))}`));
   return 0;
 }
 

@@ -69,7 +69,13 @@ Start the server in the project directory. Config discovery works like
 | `--max-sessions <n>` | How many sessions may be open at once, 1 through 16; default 4. Each session is its own browser or device. |
 
 Operator output goes to stderr, prefixed `e2e mcp:`. Stdout carries only the
-protocol; anything a config module writes to stdout is redirected.
+protocol. What your code writes through `console`, `process.stdout`, or
+`process.stderr` (the config's top-level code, project tools) goes to stderr
+with secret values redacted. Output printed while a config loads appears once
+it has loaded; if the load fails, that output is withheld, since the config's
+secrets are unknown. An error nobody caught is logged redacted and shuts the
+server down. A child process that inherits the server's stdio writes past
+this.
 
 ## Tools
 
@@ -184,8 +190,9 @@ Sessions enforce what tests enforce. Node ids are valid only against the
 newest observation. A secret fills only through `type_secret`; once one has
 been filled, `screenshot` and the point tools (`tap_at`, `hover_at`,
 `type_at`, `press_at`, `select_at`) stay in the catalog but answer
-`PIXEL_TAINTED` for the rest of the session. Every text a `call` returns, a node `locate` found,
-an action's result, or an error, passes the attempt's secret ledger. Nothing a
+`PIXEL_TAINTED` for the rest of the session. Every text a tool returns, a node `locate` found,
+an action's result, an `open_session` or `close_session` failure, or a cleanup line, has the
+config's secret values redacted once the config has loaded, as do the server's own log lines. Nothing a
 session does is recorded as a test result or into the replay cache; its
 artifacts land under `<output>/artifacts/<target>/sessions/`, its videos under
 `<output>/videos/`. A later `e2e run` clears `<output>/artifacts`; the
