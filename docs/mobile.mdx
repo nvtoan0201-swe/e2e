@@ -237,7 +237,9 @@ agent-device's message:
   `device.setAirplaneMode`, `device.setLocation`, `device.clearLocation`,
   `device.setAppearance`, the biometric methods, and `device.clearKeychain`.
   So are `device.clipboard`, `device.setClipboard`, and `device.fold`. For a
-  fresh start, reinstall with `device.installApp(path, { reinstall: true })`.
+  fresh start, reinstall with `device.installApp(path, { reinstall: true })`,
+  with `app.bundleId` on the target or `app` in the options, so agent-device
+  knows which app to remove.
 - An older iPhone that `xcrun devicectl list devices` does not list is
   driven without CoreDevice: taps, typing, and the screen work, but
   installs, `--video`, `device.openLink`, and `app.launchArguments` fail.

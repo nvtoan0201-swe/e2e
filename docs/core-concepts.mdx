@@ -8,9 +8,12 @@ A test has three types of step:
 
 | Step | API | Model call |
 | --- | --- | --- |
-| [Goal](#goals) | `agent.act` | Yes |
+| [Goal](#goals) | `agent.act` | Yes, unless the [cache](/cache) replays it |
 | [Assertion](#assertions) | `agent.assert`, `agent.waitFor`, `agent.extract` | Yes |
 | [Locator](#locators) | `screen` and `expect` | No |
+
+The model column is for the built-in agent. A
+[custom executor](/executors) can run `act` and `assert` without a model.
 
 You can use all three in one test:
 
@@ -66,8 +69,9 @@ type at points in the image.
 
 ## Assertions
 
-An assertion examines the screen. The judging model sees the statement and
-the current screen only. It does not see the earlier steps.
+An assertion examines the screen. The judging model sees the statement, the
+current screen, and the agent's context. It does not see the earlier steps
+or the summaries of `act`.
 
 - `agent.assert` examines the screen now. A false statement fails with
   `ASSERTION_FAILED`. Not sufficient evidence fails with
