@@ -90,6 +90,9 @@ const data = await agent.extract('every todo title', {
 expect(data.titles).toContain('Buy milk');
 ```
 
+For text that the model wrote, examine the meaning, not the full sentence.
+When the exact text is important, use a [locator](#locators).
+
 ### Judging pixels
 
 Judgments read a redacted text snapshot of the screen. For a visual check,
@@ -125,8 +128,9 @@ await screen.getByRole('image', 'Seat map').tap({ position: { x: 120, y: 48 } })
 await expect(screen.getByRole('status')).toHaveText('2 remaining');
 ```
 
-- An action fails when its query finds more than one node. Use
-  `.filter()`, `.first()`, or `.nth()` to find one node.
+- An action, a read, or a single-node assertion fails when its query finds
+  more than one node. Use `.filter()`, `.first()`, or `.nth()` to find one
+  node.
 - A direct read, such as `textContent()`, does not retry.
 - Put an `expect` after an `agent.act` goal. It examines the exact result.
   The [replay cache](/cache) records a goal only after a later check passes.
@@ -161,8 +165,8 @@ test('needs two organizations', async ({ app }) => {
   tests run in sequence on one worker, and retry together.
 - For setup and cleanup, use `test.extend`. See
   [Your own fixtures](/reference/test#your-own-fixtures).
-- Import `test` from `@e2e-dev/web` or `@e2e-dev/mobile` to get the
-  `browser` or `device` fixture.
+- Import `test` from `@e2e-dev/web` or `@e2e-dev/mobile` to have the
+  `browser` or `device` fixture typed.
 
 The [test reference](/reference/test) shows all options.
 
